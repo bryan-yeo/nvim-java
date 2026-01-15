@@ -114,9 +114,18 @@ function Runner:select_dap_config(args)
 
 	local enriched_config = dap:enrich_config(selected_dap_config)
 
-	local class_paths = table.concat(enriched_config.classPaths, ':')
+	local sep = ''
+	if string.match(string.lower(vim.loop.os_uname().sysname), "windows") then
+		sep = ';'
+	end
+
+	local class_paths = table.concat(enriched_config.classPaths, sep)
+	local classpath_file = vim.fn.tempname() .. '.classpath'
+	vim.fn.writefile({ class_paths }, classpath_file)
+
 	local main_class = enriched_config.mainClass
 	local java_exec = enriched_config.javaExec
+	java_exec = '"' .. java_exec .. '"'
 
 	local active_profile = profile_config.get_active_profile(enriched_config.name)
 
@@ -132,7 +141,7 @@ function Runner:select_dap_config(args)
 		java_exec,
 		vm_args,
 		'-cp',
-		class_paths,
+		'@' .. classpath_file,
 		main_class,
 		prog_args,
 	}

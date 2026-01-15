@@ -34,6 +34,32 @@ function Setup:get_dap_adapter()
 	}
 end
 
+local function find_matching_dirs(start, suffix)
+  local results = {}
+
+  local function scan(dir)
+    local fd = vim.loop.fs_scandir(dir)
+    if not fd then return end
+
+    while true do
+      local name, t = vim.loop.fs_scandir_next(fd)
+      if not name then break end
+
+      local full = dir .. "/" .. name
+
+      if t == "directory" then
+        if full:match(suffix .. "$") then
+          table.insert(results, vim.fs.normalize(full))
+        end
+        scan(full)
+      end
+    end
+  end
+
+  scan(start)
+  return results
+end
+
 ---@private
 ---Returns the launch config filled with required data if missing in the passed config
 ---@param config java-dap.DapLauncherConfigOverridable
@@ -66,6 +92,21 @@ function Setup:enrich_config(config)
 
 		if not config.classPaths then
 			config.classPaths = paths[2]
+		end
+	end
+
+	local additional = {
+		'build/classes/java/main',
+		'build/classes/java/test',
+		'build/resources/main',
+		'build/resources/testConvertables',
+	}
+
+	for _, path in ipairs(additional) do
+		local paths = find_matching_dirs(vim.fn.getcwd(), path)
+		if #paths > 0 then
+			table.move(config.classPaths, 1, #config.classPaths, #paths + 1, paths)
+			config.classPaths = paths
 		end
 	end
 
